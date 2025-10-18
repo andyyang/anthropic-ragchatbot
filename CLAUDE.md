@@ -63,3 +63,4 @@ This is a **Retrieval-Augmented Generation (RAG) system** for answering question
 - Chunk settings: 800 size, 100 overlap, 5 max results
 - always use uv to run the server do not use pip directly
 - make sure to use uv to manage all dependencies
+- don't run the server using ./run.sh I will start it myself
