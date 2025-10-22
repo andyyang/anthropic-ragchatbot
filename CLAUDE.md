@@ -9,6 +9,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Install dependencies**: `uv sync`
 - **Create docs directory**: `mkdir -p docs` (required for startup)
 
+### Code Quality
+- **Format code**: `make format` or `uv run black . && uv run isort .`
+- **Run linting**: `make lint` or `uv run flake8 backend/ --max-line-length=88 --extend-ignore=E203,W503`
+- **Run tests**: `make test` or `uv run pytest`
+- **Run all quality checks**: `make quality` (formats, lints, and tests)
+- **Clean temporary files**: `make clean`
+
 ### Environment Setup
 - Create `.env` file in root with: `ANTHROPIC_API_KEY=your_key_here`
 - Requires Python 3.13+, uv package manager, and Anthropic API key
