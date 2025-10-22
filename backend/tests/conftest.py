@@ -1,6 +1,9 @@
 import os
 import sys
-from unittest.mock import Mock
+from unittest.mock import Mock, MagicMock, patch
+from typing import List, Dict, Any, Optional
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
 
 import pytest
 
@@ -243,6 +246,142 @@ def mock_tool_manager():
 
     return mock_manager
 
+
+@pytest.fixture
+def mock_rag_system():
+    """Mock RAG system for API testing"""
+    mock_rag = Mock()
+    
+    # Mock query method
+    mock_rag.query.return_value = (
+        "This is a test response from the RAG system.",
+        [{"text": "Test Source - Lesson 1", "url": "https://example.com/test/lesson1"}]
+    )
+    
+    # Mock session manager
+    mock_rag.session_manager.create_session.return_value = "test_session_123"
+    mock_rag.session_manager.clear_session = Mock()
+    
+    # Mock analytics
+    mock_rag.get_course_analytics.return_value = {
+        "total_courses": 2,
+        "course_titles": ["Introduction to MCP", "Advanced Python Programming"]
+    }
+    
+    return mock_rag
+
+
+@pytest.fixture
+def test_app():
+    """Create a test FastAPI application without static file mounting"""
+    from fastapi import FastAPI, HTTPException
+    from fastapi.middleware.cors import CORSMiddleware
+    from fastapi.middleware.trustedhost import TrustedHostMiddleware
+    from pydantic import BaseModel
+    from typing import List, Optional
+    
+    # Pydantic models (copied from app.py)
+    class QueryRequest(BaseModel):
+        query: str
+        session_id: Optional[str] = None
+
+    class ClearSessionRequest(BaseModel):
+        session_id: str
+
+    class SourceItem(BaseModel):
+        text: str
+        url: Optional[str] = None
+
+    class QueryResponse(BaseModel):
+        answer: str
+        sources: List[SourceItem]
+        session_id: str
+
+    class CourseStats(BaseModel):
+        total_courses: int
+        course_titles: List[str]
+    
+    # Create test app
+    app = FastAPI(title="Course Materials RAG System - Test", root_path="")
+    
+    # Add middleware
+    app.add_middleware(
+        TrustedHostMiddleware,
+        allowed_hosts=["*"]
+    )
+    
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+        expose_headers=["*"],
+    )
+    
+    # API Endpoints (using app.state.rag_system which will be set by fixture)
+    @app.post("/api/query", response_model=QueryResponse)
+    async def query_documents(request: QueryRequest):
+        try:
+            rag_system = app.state.rag_system
+            session_id = request.session_id
+            if not session_id:
+                session_id = rag_system.session_manager.create_session()
+            
+            answer, sources = rag_system.query(request.query, session_id)
+            
+            source_items = []
+            for source in sources:
+                if isinstance(source, dict):
+                    source_items.append(SourceItem(text=source["text"], url=source.get("url")))
+                else:
+                    source_items.append(SourceItem(text=str(source), url=None))
+            
+            return QueryResponse(
+                answer=answer,
+                sources=source_items,
+                session_id=session_id
+            )
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @app.get("/api/courses", response_model=CourseStats)
+    async def get_course_stats():
+        try:
+            rag_system = app.state.rag_system
+            analytics = rag_system.get_course_analytics()
+            return CourseStats(
+                total_courses=analytics["total_courses"],
+                course_titles=analytics["course_titles"]
+            )
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @app.post("/api/clear-session")
+    async def clear_session(request: ClearSessionRequest):
+        try:
+            rag_system = app.state.rag_system
+            rag_system.session_manager.clear_session(request.session_id)
+            return {"message": "Session cleared successfully"}
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+    
+    @app.get("/")
+    async def root():
+        return {"message": "RAG System API - Test Environment"}
+    
+    # Initialize with a placeholder - will be replaced by test fixture
+    app.state.rag_system = None
+    
+    return app
+
+
+@pytest.fixture
+def test_client(test_app, mock_rag_system):
+    """Create test client for API testing with mocked RAG system"""
+    # Replace the mock RAG system in the app with our fixture
+    test_app.state.rag_system = mock_rag_system
+    return TestClient(test_app)
 
 @pytest.fixture(autouse=True)
 def cleanup_test_db():

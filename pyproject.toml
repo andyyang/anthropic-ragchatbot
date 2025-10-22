@@ -20,6 +20,35 @@ dependencies = [
     "isort==5.13.2",
     "flake8==7.1.1",
     "autoflake>=2.3.1",
+    "httpx==0.27.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["backend/tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "-v",
+    "--tb=short",
+    "--strict-config",
+    "--strict-markers",
+    "--disable-warnings",
+    "--asyncio-mode=auto",
+    "--cov=backend",
+    "--cov-report=term-missing",
+]
+asyncio_default_fixture_loop_scope = "function"
+markers = [
+    "unit: Unit tests for individual components",
+    "integration: Integration tests for component interaction", 
+    "api: API endpoint tests",
+    "slow: Tests that take significant time to run",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+    "ignore:.*resource_tracker.*:UserWarning",
 ]
 
 [tool.black]
@@ -45,9 +74,3 @@ profile = "black"
 multi_line_output = 3
 line_length = 88
 
-[tool.pytest.ini_options]
-testpaths = ["backend/tests"]
-python_files = ["test_*.py"]
-python_classes = ["Test*"]
-python_functions = ["test_*"]
-addopts = "-v --cov=backend --cov-report=term-missing"
