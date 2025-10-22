@@ -155,8 +155,14 @@ class DevStaticFiles(StaticFiles):
             response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
             response.headers["Pragma"] = "no-cache"
             response.headers["Expires"] = "0"
+            # Remove ETag to prevent conditional requests
+            if "etag" in response.headers:
+                del response.headers["etag"]
+            # Remove Last-Modified to prevent conditional requests
+            if "last-modified" in response.headers:
+                del response.headers["last-modified"]
         return response
 
 
 # Serve static files for the frontend
-app.mount("/", StaticFiles(directory="../frontend", html=True), name="static")
+app.mount("/", DevStaticFiles(directory="../frontend", html=True), name="static")
